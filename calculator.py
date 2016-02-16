@@ -1,10 +1,14 @@
 #!/usr/bin/env python2.7
 
+import uuid
+
 from flask import Flask, session, render_template, request
 
 app = Flask(__name__)
 app.debug = True
 app.secret_key = "topsecret"
+
+all_results = {}
 
 def is_a_number(arg):
     try:
@@ -33,10 +37,14 @@ def calculate(arg1_str, arg2_str, op):
 @app.route("/")
 def calculator_page():
     errors = []
-    
-    # Use Flask's session for "persistence"
-    if "results" not in session:
-        session["results"] = []
+
+    if "id" not in session:
+        session["id"] = uuid.uuid4()
+
+    if session["id"] not in all_results:
+        all_results[session["id"]] = []
+
+    curr_results = all_results[session["id"]]
 
     try: 
         arg1 = request.args["arg1"]
@@ -47,7 +55,7 @@ def calculator_page():
             arg1, op, arg2, calculate(arg1, arg2, op)
         )
 
-        session["results"].append(result)
+        curr_results.append(result)
 
     except KeyError:
         # We didn't get arguments and that's fine. (for instance, on the first
@@ -60,7 +68,7 @@ def calculator_page():
         errors.append(str(e))
 
     return render_template(
-        "calculator.html", results=session["results"], errors=errors
+        "calculator.html", results=curr_results, errors=errors
     )
 
 if __name__ == "__main__":
