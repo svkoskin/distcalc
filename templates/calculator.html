@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<title>Calculator</title>
+<ul>
+  {% for res in results %}
+  <li>{{ res }}</li>
+  {% endfor %}
+</ul>
+<ul>
+  {% for err in errors %}
+  <li>{{ err }}</li>
+  {% endfor %}
+</ul>
+<form action="/">
+  <input name="arg1" type="text" />
+  <select name="op">
+    <option value="+">+</option>
+    <option value="-">-</option>
+    <option value="*">*</option>
+    <option value="/">/</option>
+  </select>
+  <input name="arg2" type="text" />
+  <input type="submit" value="calc" />
+</form>
