@@ -4,10 +4,6 @@ import uuid
 
 from flask import Flask, jsonify, render_template, request, session
 
-app = Flask(__name__)
-app.debug = True
-app.secret_key = "topsecret"
-
 class Calculator(object):
     def __init__(self):
         self.all_results = {}
@@ -47,11 +43,17 @@ class Calculator(object):
 
         curr_results.append(result)
 
+        return calc_result
+
     def get_results(self, sess_id):
         if sess_id not in self.all_results:
             self.all_results[sess_id] = []
 
         return self.all_results[sess_id]
+
+app = Flask(__name__)
+app.debug = True
+app.secret_key = "topsecret"
 
 calculator = Calculator()
 
@@ -74,7 +76,7 @@ def do_calculate_ajax():
         arg2 = request.args["arg2"]
         op = request.args["op"]
 
-        calculator.calculate(session["id"], arg1, arg2, op)
+        calc_result = calculator.calculate(session["id"], arg1, arg2, op)
 
     except KeyError:
         # We didn't get arguments and that's fine. (for instance, on the first
@@ -86,13 +88,11 @@ def do_calculate_ajax():
         # returned page.
         errors.append(unicode(e))
 
-    return jsonify(errors=errors)
+    return jsonify(calcResult=calc_result, errors=errors)
 
 @app.route("/")
 def calculator_page():
-    return render_template(
-        "calculator.html"
-    )
+    return render_template("calculator.html")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0")
