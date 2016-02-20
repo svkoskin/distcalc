@@ -1,7 +1,8 @@
 #!/usr/bin/env python2.7
 
-import uuid
+import re
 import StringIO
+import uuid
 
 from flask import Flask, jsonify, make_response, render_template, request, session
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -50,18 +51,35 @@ class Calculator(object):
 
         return calc_result
 
-    def calculate_and_get_sin(self, arg_str):
-        arg = self._to_number(arg_str)
+    def calculate_and_get_sin(self, expr):
+        match_with_x = re.match(r"sin\(([\d.]+)x\)", expr)
+
+        if match_with_x is not None:
+            num = self._to_number(match_with_x.group(1))
+            with_x = True
+        else:
+            match_with_constant = re.match(r"sin\(([\d.]+)\)", expr)
+
+            if match_with_constant is not None:
+                num = self._to_number(match_with_constant.group(1))
+                with_x = False
+            else:
+                return "error"
 
         figure = Figure()
 
         axes = figure.add_subplot(1, 1, 1)
         xs = np.arange(-np.pi, np.pi, 0.01)
-        ys = [np.sin(arg * x) for x in xs]
+
+        if with_x:
+            ys = [np.sin(num * x) for x in xs]
+        else:
+            ys = [np.sin(num) for x in xs]
+
         axes.plot(xs, ys)
         
         axes.set_xlabel("x")
-        axes.set_ylabel("sin({}x)".format(arg))
+        axes.set_ylabel(expr)
         axes.autoscale(tight=True)
 
         canvas = FigureCanvas(figure)
