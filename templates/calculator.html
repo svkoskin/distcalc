@@ -15,12 +15,12 @@ var normalMatcher = new RegExp("([\-\+\*\/])(\\d+)(.*)");
 function doRequestCalculations(prevRes, expr, resultHandler) {
     var arg1, arg2, op, matches;
 
+    expr = expr.replace(illegals, "");
+
     if (expr.length == 0) {
 	// Wow we're so done
 	resultHandler([]);
     }
-
-    expr = expr.replace(illegals, "");
 
     if (prevRes == null) {
 	matches = expr.match(firstRunMatcher);
@@ -55,18 +55,28 @@ function doRequestCalculations(prevRes, expr, resultHandler) {
     });
 }
 
+function doRequestSine(expr) {
+    var arg = expr.match(new RegExp("[\\d\.]+"))[0];
+    
+    $("#lastSine").html("<img src='/sin.png?arg=" + arg + "' />");
+}
+
 function requestCalculation() {
     var expr = $("input[name='expr']").val();
-    
-    doRequestCalculations(null, expr, function(errors) {
-	$.each(errors, function(idx, error) {
-	    $("#errors").append("<li>" + error + "</li>");
-	});
 
-	if (errors.length == 0) {
-	    updateCalculations();
-	}
-    });
+    if (expr.startsWith("sin")) {
+	doRequestSine(expr);
+    } else {
+	doRequestCalculations(null, expr, function(errors) {
+	    $.each(errors, function(idx, error) {
+		$("#errors").append("<li>" + error + "</li>");
+	    });
+
+	    if (errors.length == 0) {
+		updateCalculations();
+	    }
+	});
+    }   
 }
 
 function updateCalculations() {
@@ -92,13 +102,14 @@ $(function() {
 
 </script>
 
-
 <ul id="errors"></ul>
 
 <form id="calcForm">
   <input name="expr" type="text" />
   <input type="submit" name="submitCalc" value="calc" />
 </form>
+
+<div id="lastSine"></div>
 
 <ul id="results"></ul>
 

@@ -1,8 +1,13 @@
 #!/usr/bin/env python2.7
 
 import uuid
+import StringIO
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, make_response, render_template, request, session
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+import numpy as np
+
 
 class Calculator(object):
     def __init__(self):
@@ -45,6 +50,25 @@ class Calculator(object):
 
         return calc_result
 
+    def calculate_and_get_sin(self, arg_str):
+        arg = self._to_number(arg_str)
+
+        figure = Figure()
+
+        axes = figure.add_subplot(1, 1, 1)
+        xs = np.arange(-np.pi, np.pi, 0.01)
+        ys = [np.sin(arg * x) for x in xs]
+        axes.plot(xs, ys)
+        
+        axes.set_xlabel("x")
+        axes.set_ylabel("sin({}x)".format(arg))
+        axes.autoscale(tight=True)
+
+        canvas = FigureCanvas(figure)
+        output = StringIO.StringIO()
+        canvas.print_png(output)
+        return output.getvalue()
+
     def get_results(self, sess_id):
         if sess_id not in self.all_results:
             self.all_results[sess_id] = []
@@ -56,6 +80,24 @@ app.debug = True
 app.secret_key = "topsecret"
 
 calculator = Calculator()
+
+@app.route("/sin.png")
+def get_sin():
+    errors = []
+    try:
+        arg = request.args["arg"]
+        sin_png = calculator.calculate_and_get_sin(arg)
+
+        response = make_response(sin_png)
+        response.mimetype = "image/png"
+        return response
+
+    except KeyError as e:
+        errors.append(unicode(e))
+        return errors
+    except ValueError as e:
+        errors.append(unicode(e))
+        return errors
 
 @app.route("/calculations.json")
 def get_calculations_ajax():
