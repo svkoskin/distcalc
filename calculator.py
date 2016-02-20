@@ -12,6 +12,16 @@ class Calculator(object):
     def __init__(self):
         self.all_results = {}
 
+    @staticmethod
+    def _to_number(number_str):
+        try:        
+            return int(number_str)
+        except ValueError:
+            try:
+                return float(number_str)
+            except ValueError as e:
+                raise e
+
     def calculate(self, sess_id, arg1_str, arg2_str, op):
         if sess_id not in self.all_results:
             self.all_results[sess_id] = []
@@ -19,8 +29,8 @@ class Calculator(object):
         curr_results = self.all_results[sess_id]
 
         # Caller will catch ValueErrors raised by this
-        arg1 = float(arg1_str)
-        arg2 = float(arg2_str)
+        arg1 = self._to_number(arg1_str)
+        arg2 = self._to_number(arg2_str)
 
         if op == "+":
             calc_result = arg1 + arg2
@@ -29,7 +39,7 @@ class Calculator(object):
         elif op == "*":
             calc_result = arg1 * arg2
         elif op == "/":
-            calc_result = arg1 / arg2
+            calc_result = float(arg1) / float(arg2)
         else:
             raise ValueError("Allowed operators are +, -, * and /")
 
@@ -67,7 +77,7 @@ def calculator_page():
     except ValueError as e:
         # We got some invalid values from the user who should be informed in 
         # returned page.
-        errors.append(str(e))
+        errors.append(unicode(e))
 
     return render_template(
         "calculator.html", results=calculator.get_results(session["id"]),
