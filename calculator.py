@@ -78,10 +78,8 @@ def do_calculate_ajax():
 
         calc_result = calculator.calculate(session["id"], arg1, arg2, op)
 
-    except KeyError:
-        # We didn't get arguments and that's fine. (for instance, on the first
-        # page load this will happen)
-        print "Got KeyError"
+    except KeyError as e:
+        errors.append(unicode(e))
 
     except ValueError as e:
         # We got some invalid values from the user who should be informed in 
