@@ -1,16 +1,54 @@
 <!DOCTYPE html>
+<html>
+<head>
 <title>Calculator</title>
-<ul>
-  {% for res in results %}
-  <li>{{ res }}</li>
-  {% endfor %}
-</ul>
-<ul>
-  {% for err in errors %}
-  <li>{{ err }}</li>
-  {% endfor %}
-</ul>
-<form action="/">
+</head>
+
+<body>
+<script type="text/javascript" src="//ajax.aspnetcdn.com/ajax/jQuery/jquery-1.12.0.min.js"></script>
+
+<script type="text/javascript">
+function requestCalculation() {
+    $.getJSON("/do_calculation.json", {
+	arg1: $("input[name='arg1']").val(),
+	arg2: $("input[name='arg2']").val(),
+	op: $("select[name='op']").val()
+    }, function(data) {
+	$.each(data.errors, function(idx, error) {
+	    $("#errors").append("<li>" + error + "</li>");
+	});
+
+	updateCalculations();
+    });
+}
+
+function updateCalculations() {
+    $.getJSON("/calculations.json", function(data) {
+	var newResults = "";
+	
+	$.each(data.results, function(idx, result) {
+	    newResults += ("<li>" + result + "</li>");
+	});
+	
+	$("#results").html(newResults);
+    });
+}
+
+$(function() {
+    updateCalculations();
+
+    $("#calcForm").submit(function(event) {
+	event.preventDefault();
+	requestCalculation();
+    });
+});
+
+</script>
+
+<ul id="results"></ul>
+<ul id="errors"></ul>
+
+<form id="calcForm">
   <input name="arg1" type="text" />
   <select name="op">
     <option value="+">+</option>
@@ -19,5 +57,7 @@
     <option value="/">/</option>
   </select>
   <input name="arg2" type="text" />
-  <input type="submit" value="calc" />
+  <input type="submit" name="submitCalc" value="calc" />
 </form>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 import uuid
 
-from flask import Flask, session, render_template, request
+from flask import Flask, jsonify, render_template, request, session
 
 app = Flask(__name__)
 app.debug = True
@@ -55,9 +55,16 @@ class Calculator(object):
 
 calculator = Calculator()
 
-@app.route("/")
-def calculator_page():
-    errors = []
+@app.route("/calculations.json")
+def get_calculations_ajax():
+    if "id" not in session:
+        session["id"] = unicode(uuid.uuid4())
+
+    return jsonify(results=calculator.get_results(session["id"]))
+
+@app.route("/do_calculation.json")
+def do_calculate_ajax():
+    errors = []    
 
     if "id" not in session:
         session["id"] = unicode(uuid.uuid4())
@@ -79,9 +86,12 @@ def calculator_page():
         # returned page.
         errors.append(unicode(e))
 
+    return jsonify(errors=errors)
+
+@app.route("/")
+def calculator_page():
     return render_template(
-        "calculator.html", results=calculator.get_results(session["id"]),
-        errors=errors
+        "calculator.html"
     )
 
 if __name__ == "__main__":
