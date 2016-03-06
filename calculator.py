@@ -1,12 +1,9 @@
 #!/usr/bin/env python2.7
 
 import re
-import StringIO
 import uuid
 
-from flask import Flask, jsonify, make_response, render_template, request, session
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.figure import Figure
+from flask import Flask, jsonify, render_template, request, session
 import numpy as np
 
 
@@ -51,41 +48,11 @@ class Calculator(object):
 
         return calc_result
 
-    def calculate_and_get_sin(self, expr):
-        match_with_x = re.match(r"sin\(([\d.]+)x\)", expr)
+    def calculate_and_get_sin(self, coef):
+        num = float(coef)
 
-        if match_with_x is not None:
-            num = self._to_number(match_with_x.group(1))
-            with_x = True
-        else:
-            match_with_constant = re.match(r"sin\(([\d.]+)\)", expr)
-
-            if match_with_constant is not None:
-                num = self._to_number(match_with_constant.group(1))
-                with_x = False
-            else:
-                return "error"
-
-        figure = Figure()
-
-        axes = figure.add_subplot(1, 1, 1)
         xs = np.arange(-np.pi, np.pi, 0.01)
-
-        if with_x:
-            ys = [np.sin(num * x) for x in xs]
-        else:
-            ys = [np.sin(num) for x in xs]
-
-        axes.plot(xs, ys)
-        
-        axes.set_xlabel("x")
-        axes.set_ylabel(expr)
-        axes.autoscale(tight=True)
-
-        canvas = FigureCanvas(figure)
-        output = StringIO.StringIO()
-        canvas.print_png(output)
-        return output.getvalue()
+        return [(x, np.sin(num * x)) for x in xs]
 
     def get_results(self, sess_id):
         if sess_id not in self.all_results:
@@ -99,23 +66,21 @@ app.secret_key = "topsecret"
 
 calculator = Calculator()
 
-@app.route("/sin.png")
+@app.route("/sin.json")
 def get_sin():
     errors = []
     try:
-        arg = request.args["arg"]
-        sin_png = calculator.calculate_and_get_sin(arg)
+        coef = request.args["coef"]
+        sin_vals = calculator.calculate_and_get_sin(coef)
 
-        response = make_response(sin_png)
-        response.mimetype = "image/png"
-        return response
+        return jsonify(sinValues=sin_vals, errors=errors)
 
     except KeyError as e:
         errors.append(unicode(e))
-        return errors
+        return jsonify(errors=errors)
     except ValueError as e:
         errors.append(unicode(e))
-        return errors
+        return jsonify(errors=errors)
 
 @app.route("/calculations.json")
 def get_calculations_ajax():

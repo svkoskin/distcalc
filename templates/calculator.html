@@ -73,26 +73,38 @@ function doRequestSine(expr) {
 	return [newX, newY];
     }
 
-    // Empty background
-    ctx.fillStyle = "white";
-    for(var x = 0; x < sineCanvas.width; x++) {
-	for(var y = 0; y < sineCanvas.height; y++) {
-	    ctx.fillRect(x, y, 1, 1);
+    function plotResults(values) {
+	// Empty background
+	ctx.fillStyle = "white";
+	for(var x = 0; x < sineCanvas.width; x++) {
+	    for(var y = 0; y < sineCanvas.height; y++) {
+		ctx.fillRect(x, y, 1, 1);
+	    }
+	}
+
+	// Plot
+	ctx.fillStyle = "red";
+
+	for(var i = 0; i < values.length; i++) {
+	    x = values[i][0];
+	    y = values[i][1];
+
+	    scaledCoords = scaleCoords([x, y]);
+	    ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);	    
 	}
     }
 
-    // Plot
-    ctx.fillStyle = "red";
-
-    // Don't use actual Math.PI as value since it will not match the step
-    // exactly
-    for(var x = -3.15; x <= 3.15; x += 0.01) {
-	y = Math.sin(coef * x);
-
-	scaledCoords = scaleCoords([x, y]);
-
-	ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);
-    }
+    $.getJSON("/sin.json", {
+	coef: coef
+    }, function(data) {
+	if (data.errors.length > 0) {
+	    $.each(errors, function(idx, error) {
+		$("#errors").append("<li>" + error + "</li>");
+	    });	    
+	} else {
+	    plotResults(data.sinValues);
+	}
+    });
 }
 
 function requestCalculation() {
