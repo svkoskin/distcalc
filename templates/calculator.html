@@ -13,14 +13,26 @@ var firstRunMatcher = new RegExp("([\\d\.]+)([\-\+\*\/])(\\d+)(.*)");
 var normalMatcher = new RegExp("([\-\+\*\/])([\\d\.]+)(.*)");
 var sineMatcher = /sin\(([\d.]+)x\)/;
 
-function doRequestCalculations(prevRes, expr, resultHandler) {
+// Initial cache size, can be rest through a form
+var cacheSize = 100;
+var cache = {};
+
+// Queue for upcoming cache evictions. Not necessarily efficient way of
+// implementing a cache, but a real efficient cache would be very low-level.
+// This queue is included only to make it possible to have the requested upper
+// bound for cache size.
+var cacheEvictionQueue = new Array(cacheSize);
+
+function doRequestCalculations(prevRes, expr, results, resultHandler) {
     var arg1, arg2, op, matches;
+
+    // TODO: Extract simplification
 
     expr = expr.replace(illegals, "");
 
     if (expr.length == 0) {
 	// Wow we're so done
-	resultHandler([]);
+	return resultHandler(results, []);
     }
 
     if (prevRes == null) {
@@ -39,21 +51,44 @@ function doRequestCalculations(prevRes, expr, resultHandler) {
 	remainingExpr = matches[3];
     }
 
-    $.getJSON("/do_calculation.json", {
-	arg1: arg1,
-	arg2: arg2,
-	op: op
-    }, function(data) {
-	var nextPrevRes = data.calcResult;
+    // Check if the expression has a cached result.
+    var nextPrevRes;
 
-	if (data.errors.length > 0) {
-	    // Wow we're giving up
-	    resultHandler(data.errors);
-	} else {
-	    // Wo we'll go deeper
-	    doRequestCalculations(nextPrevRes, remainingExpr, resultHandler);
-	}
-    });
+    var cacheKey = arg1 + " " + arg2 + " " + op;
+
+    if (cache[cacheKey] != undefined) {
+	console.log("Cache hit");
+	// Hit
+	nextPrevRes = cache[cacheKey];
+
+	// Wow we'll go deeper
+	results.push(arg1 + " " + op + " " + arg2 + " = " + nextPrevRes);
+	doRequestCalculations(
+	    nextPrevRes, remainingExpr, results, resultHandler
+	);
+    } else {
+	console.log("Cache miss");
+	// Miss, query the server...
+	$.getJSON("/do_calculation.json", {
+	    arg1: arg1,
+	    arg2: arg2,
+	    op: op
+	}, function(data) {
+	    if (data.errors.length > 0) {
+		// Wow we're giving up
+		resultHandler([], data.errors);
+	    }
+
+	    nextPrevRes = data.calcResult;
+	    pushToCache(cacheKey, nextPrevRes);
+
+	    // Wow we'll go deeper
+	    results.push(arg1 + " " + op + " " + arg2 + " = " + nextPrevRes);
+	    doRequestCalculations(
+		nextPrevRes, remainingExpr, results, resultHandler
+	    );
+	});
+    }
 }
 
 function doRequestSine(expr) {
@@ -94,17 +129,24 @@ function doRequestSine(expr) {
 	}
     }
 
-    $.getJSON("/sin.json", {
-	coef: coef
-    }, function(data) {
-	if (data.errors.length > 0) {
-	    $.each(errors, function(idx, error) {
-		$("#errors").append("<li>" + error + "</li>");
-	    });	    
-	} else {
-	    plotResults(data.sinValues);
-	}
-    });
+    var cacheKey = "sin" + coef;
+
+    if (cache[cacheKey] != undefined) {
+	plotResults(cache[cacheKey]);
+    } else {
+	$.getJSON("/sin.json", {
+	    coef: coef
+	}, function(data) {
+	    if (data.errors.length > 0) {
+		$.each(errors, function(idx, error) {
+		    $("#errors").append("<li>" + error + "</li>");
+		});	  
+	    } else {
+		pushToCache(cacheKey, data.sinValues);
+		plotResults(data.sinValues);
+	    }
+	});	
+    }
 }
 
 function requestCalculation() {
@@ -113,40 +155,60 @@ function requestCalculation() {
     if (expr.startsWith("sin")) {
 	doRequestSine(expr);
     } else {
-	doRequestCalculations(null, expr, function(errors) {
+	doRequestCalculations(null, expr, [], function(result, errors) {
 	    $.each(errors, function(idx, error) {
 		$("#errors").append("<li>" + error + "</li>");
 	    });
 
 	    if (errors.length == 0) {
-		updateCalculations();
+		newResults = ("<li>" + result + "</li>") + $("#results").html();
+		$("#results").html(newResults);
 	    }
 	});
     }
 }
 
-function updateCalculations() {
-    $.getJSON("/calculations.json", function(data) {
-	var newResults = "";
+function resetCache() {
+    cacheSize = $("input[name='cacheSize']").val();
+    cache = {};
+    cacheEvictionQueue = new Array(cacheSize);
+}
 
-	$.each(data.results, function(idx, result) {
-	    newResults = ("<li>" + result + "</li>") + newResults;
-	});
+function pushToCache(key, res) {
+    cache[key] = res;
 
-	$("#results").html(newResults);
-    });
+    // For the (artificial) size limitation, push the added keys to a queue
+    cacheEvictionQueue.push(key);
+    
+    // If the cache and the related queue will reach the set bound for size,
+    // delete the key and value from both the actual cache and the queue.
+    while (cacheEvictionQueue.length > cacheSize) {
+	// This will get and delete the key first put to the queue
+	key = cacheEvictionQueue.shift();
+
+	// Delete the value from the actual random access cache
+	delete cache[key];
+    }
 }
 
 $(function() {
-    updateCalculations();
-
     $("#calcForm").submit(function(event) {
 	event.preventDefault();
 	requestCalculation();
     });
+
+    $("#cacheForm").submit(function(event) {
+	event.preventDefault();
+	resetCache();
+    });
 });
 
 </script>
+
+<form id="cacheForm">
+  Cache size: <input name="cacheSize" type="text" value="0" />
+  <input type="submit" name="submitCache" value="reset cache"/>
+</form>
 
 <ul id="errors"></ul>
 

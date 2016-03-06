@@ -6,14 +6,13 @@ import uuid
 from flask import Flask, jsonify, render_template, request, session
 import numpy as np
 
-
 class Calculator(object):
     def __init__(self):
         self.all_results = {}
 
     @staticmethod
     def _to_number(number_str):
-        try:        
+        try:
             return int(number_str)
         except ValueError:
             try:
@@ -91,12 +90,12 @@ def get_calculations_ajax():
 
 @app.route("/do_calculation.json")
 def do_calculate_ajax():
-    errors = []    
+    errors = []
 
     if "id" not in session:
         session["id"] = unicode(uuid.uuid4())
 
-    try: 
+    try:
         arg1 = request.args["arg1"]
         arg2 = request.args["arg2"]
         op = request.args["op"]
@@ -107,7 +106,7 @@ def do_calculate_ajax():
         errors.append(unicode(e))
 
     except ValueError as e:
-        # We got some invalid values from the user who should be informed in 
+        # We got some invalid values from the user who should be informed in
         # returned page.
         errors.append(unicode(e))
 
