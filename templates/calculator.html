@@ -11,6 +11,7 @@
 var illegals = new RegExp("[^0123456789\+\*\/\\-\.]", "g");
 var firstRunMatcher = new RegExp("([\\d\.]+)([\-\+\*\/])(\\d+)(.*)");
 var normalMatcher = new RegExp("([\-\+\*\/])([\\d\.]+)(.*)");
+var sineMatcher = /sin\(([\d.]+)x\)/;
 
 function doRequestCalculations(prevRes, expr, resultHandler) {
     var arg1, arg2, op, matches;
@@ -28,8 +29,8 @@ function doRequestCalculations(prevRes, expr, resultHandler) {
 	arg1 = matches[1];
 	op = matches[2];
 	arg2 = matches[3];
-	remainingExpr = matches[4];	
-    } else { 
+	remainingExpr = matches[4];
+    } else {
 	matches = expr.match(normalMatcher);
 
 	arg1 = prevRes;
@@ -56,7 +57,42 @@ function doRequestCalculations(prevRes, expr, resultHandler) {
 }
 
 function doRequestSine(expr) {
-    $("#lastSine").html("<img src='/sin.png?arg=" + expr + "' />");
+    var sineCanvas = $("#lastSine canvas")[0];
+    var ctx = sineCanvas.getContext("2d");
+    var coef = expr.match(sineMatcher)[1];
+
+    function scaleCoords(pair) {
+	// Map x-axis -3.15 ... 3.15 -> 5 ... width - 5
+	// Map y-axis -1.00 ... 1.00 -> 5 ... height - 5
+	var oldX = pair[0];
+	var oldY = pair[1];
+
+	var newX = (oldX - (-3.15)) * ((sineCanvas.width - 10) / 6.30) + 5;
+	var newY = (oldY - (-1.00)) * ((sineCanvas.height - 10) / 2.00) + 5;
+
+	return [newX, newY];
+    }
+
+    // Empty background
+    ctx.fillStyle = "white";
+    for(var x = 0; x < sineCanvas.width; x++) {
+	for(var y = 0; y < sineCanvas.height; y++) {
+	    ctx.fillRect(x, y, 1, 1);
+	}
+    }
+
+    // Plot
+    ctx.fillStyle = "red";
+
+    // Don't use actual Math.PI as value since it will not match the step
+    // exactly
+    for(var x = -3.15; x <= 3.15; x += 0.01) {
+	y = Math.sin(coef * x);
+
+	scaledCoords = scaleCoords([x, y]);
+
+	ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);
+    }
 }
 
 function requestCalculation() {
@@ -74,17 +110,17 @@ function requestCalculation() {
 		updateCalculations();
 	    }
 	});
-    }   
+    }
 }
 
 function updateCalculations() {
     $.getJSON("/calculations.json", function(data) {
 	var newResults = "";
-	
+
 	$.each(data.results, function(idx, result) {
 	    newResults = ("<li>" + result + "</li>") + newResults;
 	});
-	
+
 	$("#results").html(newResults);
     });
 }
@@ -107,7 +143,7 @@ $(function() {
   <input type="submit" name="submitCalc" value="calc" />
 </form>
 
-<div id="lastSine"></div>
+<div id="lastSine"><canvas></canvas></div>
 
 <ul id="results"></ul>
 
