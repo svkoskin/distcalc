@@ -9,8 +9,8 @@
 
 <script type="text/javascript">
 var illegals = new RegExp("[^0123456789\+\*\/\\-\.]", "g");
-var firstRunMatcher = new RegExp("(\\d+)([\-\+\*\/])(\\d+)(.*)");
-var normalMatcher = new RegExp("([\-\+\*\/])(\\d+)(.*)");
+var firstRunMatcher = new RegExp("([\\d\.]+)([\-\+\*\/])(\\d+)(.*)");
+var normalMatcher = new RegExp("([\-\+\*\/])([\\d\.]+)(.*)");
 
 function doRequestCalculations(prevRes, expr, resultHandler) {
     var arg1, arg2, op, matches;
