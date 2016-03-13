@@ -48,11 +48,9 @@ class Calculator(object):
 
         return calc_result
 
-    def calculate_and_get_sin(self, coef):
-        num = float(coef)
-
-        xs = np.arange(-np.pi, np.pi, 0.01)
-        return [(x, np.sin(num * x)) for x in xs]
+    def calculate_and_get_sin(self, arg):
+        arg = float(arg)
+        return np.sin(arg)
 
     def get_results(self, sess_id):
         if sess_id not in self.all_results:
@@ -70,10 +68,10 @@ calculator = Calculator()
 def get_sin():
     errors = []
     try:
-        coef = request.args["coef"]
-        sin_vals = calculator.calculate_and_get_sin(coef)
+        arg = request.args["arg"]
+        sin_res = calculator.calculate_and_get_sin(arg)
 
-        return jsonify(sinValues=sin_vals, errors=errors)
+        return jsonify(sinRes=sin_res, errors=errors)
 
     except KeyError as e:
         errors.append(unicode(e))

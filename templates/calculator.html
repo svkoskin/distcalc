@@ -82,39 +82,45 @@ function doRequestSine(expr) {
 
 	return [newX, newY];
     }
-
-    function plotResults(values) {
-	// Empty background
+    
+    function emptyBackground() {
 	ctx.fillStyle = "white";
 	for(var x = 0; x < sineCanvas.width; x++) {
 	    for(var y = 0; y < sineCanvas.height; y++) {
 		ctx.fillRect(x, y, 1, 1);
 	    }
 	}
+    }
 
+    function plotPoint(x, y) {
 	// Plot
 	ctx.fillStyle = "red";
 
-	for(var i = 0; i < values.length; i++) {
-	    x = values[i][0];
-	    y = values[i][1];
-
-	    scaledCoords = scaleCoords([x, y]);
-	    ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);	    
-	}
+	scaledCoords = scaleCoords([x, y]);
+	ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);	    
     }
 
-    $.getJSON("/sin.json", {
-	coef: coef
-    }, function(data) {
-	if (data.errors.length > 0) {
-	    $.each(errors, function(idx, error) {
-		$("#errors").append("<li>" + error + "</li>");
-	    });	    
-	} else {
-	    plotResults(data.sinValues);
-	}
-    });
+    function plotAndReq(x, coef) {
+	var arg = x * coef;
+
+	$.getJSON("/sin.json", {
+	    arg: arg
+	}, function(data) {		
+	    if (data.errors.length > 0) {
+		$.each(errors, function(idx, error) {
+		    $("#errors").append("<li>" + error + "</li>");
+		});	    
+	    } else {
+		plotPoint(x, data.sinRes);
+	    }
+	});	
+    }
+    
+    // Actual entry point for execution
+    emptyBackground();
+    for (var x = -3.15; x <= 3.15; x += 0.00375) {
+	plotAndReq(x, coef);
+    }
 }
 
 function requestCalculation() {
@@ -165,7 +171,7 @@ $(function() {
   <input type="submit" name="submitCalc" value="calc" />
 </form>
 
-<div id="lastSine"><canvas></canvas></div>
+<div id="lastSine"><canvas width=600 height=300></canvas></div>
 
 <ul id="results"></ul>
 
