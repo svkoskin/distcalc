@@ -260,7 +260,7 @@ $(function() {
 
     $("#cacheForm").submit(function(event) {
 	event.preventDefault();
-	resetCache($("input[name='cacheSize']").val());
+	resetCache(parseInt($("input[name='cacheSize']").val()));
 	updateCacheStats();
     });
 });
