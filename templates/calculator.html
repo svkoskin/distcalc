@@ -20,7 +20,6 @@ var cache;
 // implementing a cache, but a real efficient cache would be very low-level.
 // This queue is included only to make it possible to have the requested upper
 // bound for cache size.
-var cacheSize;
 var cacheEvictionQueue;
 
 var cacheHits;
@@ -36,7 +35,7 @@ function pushToCache(key, val) {
 
     // If the cache and the related queue will reach the set bound for size,
     // delete the key and value from both the actual cache and the queue.
-    while (cacheEvictionQueue.length > cacheSize) {
+    while (cacheEvictionQueue.length > Window.cacheSize) {
 	// This will get and delete the key first put to the queue
 	key = cacheEvictionQueue.shift();
 
@@ -46,9 +45,9 @@ function pushToCache(key, val) {
 }
 
 function resetCache(newSize) {
-    cacheSize = newSize;
+    Window.cacheSize = newSize;
     cache = {};
-    cacheEvictionQueue = new Array(cacheSize);
+    cacheEvictionQueue = new Array(newSize);
     cacheHits = 0;
     cacheMisses = 0;
 }
@@ -261,7 +260,8 @@ $(function() {
 
     $("#cacheForm").submit(function(event) {
 	event.preventDefault();
-	resetCache($("#input[name='cacheSize']").html());
+	resetCache($("#input[name='cacheSize']").val());
+	updateCacheStats();
     });
 });
 
