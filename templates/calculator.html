@@ -21,6 +21,7 @@ function doSimplify(prevRes, expr, isQueryingAllowed, resultHandler) {
     if (expr.length == 0) {
 	// Wow we're so done
 	resultHandler([]);
+	return
     }
 
     if (prevRes == null) {
