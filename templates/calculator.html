@@ -13,7 +13,7 @@ var firstRunMatcher = new RegExp("([\\d\.]+)([\-\+\*\/])(\\d+)(.*)");
 var normalMatcher = new RegExp("([\-\+\*\/])([\\d\.]+)(.*)");
 var sineMatcher = /sin\(([\d.]+)x\)/;
 
-function doRequestCalculations(prevRes, expr, resultHandler) {
+function doSimplify(prevRes, expr, isQueryingAllowed, resultHandler) {
     var arg1, arg2, op, matches;
 
     expr = expr.replace(illegals, "");
@@ -37,23 +37,32 @@ function doRequestCalculations(prevRes, expr, resultHandler) {
 	op = matches[1];
 	arg2 = matches[2];
 	remainingExpr = matches[3];
-    }
+    }    
 
+    if (isQueryingAllowed) {
+	doRequestCalculation(arg1, arg2, op, function(data) {
+	    var nextPrevRes = data.calcResult;
+
+	    if (data.errors.length > 0) {
+		// Wow we're giving up
+		resultHandler(data.errors);
+	    } else {
+		// Wo we'll go deeper
+		doSimplify(
+		    nextPrevRes, remainingExpr, isQueryingAllowed, 
+		    resultHandler
+		);
+	    }
+	});
+    }
+}
+
+function doRequestCalculation(arg1, arg2, op, resultHandler) {
     $.getJSON("/do_calculation.json", {
 	arg1: arg1,
 	arg2: arg2,
 	op: op
-    }, function(data) {
-	var nextPrevRes = data.calcResult;
-
-	if (data.errors.length > 0) {
-	    // Wow we're giving up
-	    resultHandler(data.errors);
-	} else {
-	    // Wo we'll go deeper
-	    doRequestCalculations(nextPrevRes, remainingExpr, resultHandler);
-	}
-    });
+    }, resultHandler);
 }
 
 function doRequestSine(expr) {
@@ -113,7 +122,7 @@ function requestCalculation() {
     if (expr.startsWith("sin")) {
 	doRequestSine(expr);
     } else {
-	doRequestCalculations(null, expr, function(errors) {
+	doSimplify(null, expr, true, function(errors) {
 	    $.each(errors, function(idx, error) {
 		$("#errors").append("<li>" + error + "</li>");
 	    });
