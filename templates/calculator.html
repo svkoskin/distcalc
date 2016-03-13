@@ -47,7 +47,7 @@ function pushToCache(key, val) {
 function resetCache(newSize) {
     Window.cacheSize = newSize;
     cache = {};
-    cacheEvictionQueue = new Array(newSize);
+    cacheEvictionQueue = new Array();
     cacheHits = 0;
     cacheMisses = 0;
 }
@@ -260,7 +260,7 @@ $(function() {
 
     $("#cacheForm").submit(function(event) {
 	event.preventDefault();
-	resetCache($("#input[name='cacheSize']").val());
+	resetCache($("input[name='cacheSize']").val());
 	updateCacheStats();
     });
 });
