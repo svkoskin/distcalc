@@ -13,14 +13,61 @@ var firstRunMatcher = new RegExp("([\\d\.]+)([\-\+\*\/])(\\d+)(.*)");
 var normalMatcher = new RegExp("([\-\+\*\/])([\\d\.]+)(.*)");
 var sineMatcher = /sin\(([\d.]+)x\)/;
 
-function doSimplify(prevRes, expr, isQueryingAllowed, resultHandler) {
+// JS object for cached values
+var cache;
+
+// Queue for upcoming cache evictions. Not necessarily efficient way of
+// implementing a cache, but a real efficient cache would be very low-level.
+// This queue is included only to make it possible to have the requested upper
+// bound for cache size.
+var cacheSize;
+var cacheEvictionQueue;
+
+var cacheHits;
+var cacheMisses;
+
+resetCache(2500);
+
+function pushToCache(key, val) {
+    cache[key] = val;
+
+    // For the (artificial) size limitation, push the added keys to a queue
+    cacheEvictionQueue.push(key);
+
+    // If the cache and the related queue will reach the set bound for size,
+    // delete the key and value from both the actual cache and the queue.
+    while (cacheEvictionQueue.length > cacheSize) {
+	// This will get and delete the key first put to the queue
+	key = cacheEvictionQueue.shift();
+
+	// Delete the value from the actual random access cache
+	delete cache[key];
+    }
+}
+
+function resetCache(newSize) {
+    cacheSize = newSize;
+    cache = {};
+    cacheEvictionQueue = new Array(cacheSize);
+    cacheHits = 0;
+    cacheMisses = 0;
+}
+
+function updateCacheStats() {
+    $("#hitCount").html(cacheHits);
+    $("#missCount").html(cacheMisses);
+    $("#itemCount").html(cacheEvictionQueue.length);
+}
+
+function doSimplify(prevRes, expr, isQueryingAllowed, calcs, resultHandler) {
     var arg1, arg2, op, matches;
 
+    // Process input and determine if we are done
     expr = expr.replace(illegals, "");
 
     if (expr.length == 0) {
 	// Wow we're so done
-	resultHandler([]);
+	resultHandler(calcs, []);
 	return
     }
 
@@ -38,23 +85,50 @@ function doSimplify(prevRes, expr, isQueryingAllowed, resultHandler) {
 	op = matches[1];
 	arg2 = matches[2];
 	remainingExpr = matches[3];
-    }    
+    }
 
-    if (isQueryingAllowed) {
+    var cacheKey = op + " " + arg1 + " " + arg2;
+
+    if (cache[cacheKey] != undefined) {
+	// Found solution from the cache
+	cacheHits++;
+
+	var calcRes = cache[cacheKey];
+	var resString = arg1 + " " + op + " " + arg2 + " = " + calcRes;
+	calcs.push(resString);
+
+	// Wo we'll go deeper
+	doSimplify(
+	    calcRes, remainingExpr, isQueryingAllowed, calcs,
+	    resultHandler
+	);
+    } else if (isQueryingAllowed) {
+	cacheMisses++;
+	// No solution found in the cache, but we are allowed to query server
 	doRequestCalculation(arg1, arg2, op, function(data) {
 	    var nextPrevRes = data.calcResult;
 
 	    if (data.errors.length > 0) {
 		// Wow we're giving up
-		resultHandler(data.errors);
+		resultHandler([], data.errors);
 	    } else {
+		var resString = arg1 + " " + op + " " + arg2 + " = " + data.calcResult;
+		pushToCache(cacheKey, data.calcResult);
+		calcs.push(resString);
+
 		// Wo we'll go deeper
 		doSimplify(
-		    nextPrevRes, remainingExpr, isQueryingAllowed, 
+		    nextPrevRes, remainingExpr, isQueryingAllowed, calcs,
 		    resultHandler
 		);
 	    }
 	});
+    } else {
+	// We are only simplifying, so return the cache-originated results
+	// to result handler
+
+	resultHandler(calcs, []);
+	return
     }
 }
 
@@ -82,7 +156,7 @@ function doRequestSine(expr) {
 
 	return [newX, newY];
     }
-    
+
     function emptyBackground() {
 	ctx.fillStyle = "white";
 	for(var x = 0; x < sineCanvas.width; x++) {
@@ -97,25 +171,36 @@ function doRequestSine(expr) {
 	ctx.fillStyle = "red";
 
 	scaledCoords = scaleCoords([x, y]);
-	ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);	    
+	ctx.fillRect(scaledCoords[0], scaledCoords[1], 1, 1);
     }
 
     function plotAndReq(x, coef) {
 	var arg = x * coef;
+	var cacheKey = "sin" + arg;
 
-	$.getJSON("/sin.json", {
-	    arg: arg
-	}, function(data) {		
-	    if (data.errors.length > 0) {
-		$.each(errors, function(idx, error) {
-		    $("#errors").append("<li>" + error + "</li>");
-		});	    
-	    } else {
-		plotPoint(x, data.sinRes);
-	    }
-	});	
+	if (cache[cacheKey] != undefined) {
+	    // Use cached result
+	    cacheHits++;
+	    plotPoint(x, cache[cacheKey]);
+	    updateCacheStats();
+	} else {
+	    cacheMisses++;
+	    $.getJSON("/sin.json", {
+		arg: arg
+	    }, function(data) {
+		if (data.errors.length > 0) {
+		    $.each(errors, function(idx, error) {
+			$("#errors").append("<li>" + error + "</li>");
+		    });
+		} else {
+		    pushToCache(cacheKey, data.sinRes);
+		    plotPoint(x, data.sinRes);
+		}
+		updateCacheStats();
+	    });	    
+	}
     }
-    
+
     // Actual entry point for execution
     emptyBackground();
     for (var x = -3.15; x <= 3.15; x += 0.00375) {
@@ -129,40 +214,49 @@ function requestCalculation() {
     if (expr.startsWith("sin")) {
 	doRequestSine(expr);
     } else {
-	doSimplify(null, expr, true, function(errors) {
+	doSimplify(null, expr, true, [], function(calcs, errors) {
 	    $.each(errors, function(idx, error) {
 		$("#errors").append("<li>" + error + "</li>");
 	    });
 
 	    if (errors.length == 0) {
-		updateCalculations();
+		updateCalculations(calcs);
 	    }
+
+	    updateCacheStats();
 	});
     }
 }
 
-function updateCalculations() {
-    $.getJSON("/calculations.json", function(data) {
-	var newResults = "";
+function updateCalculations(calcs) {
+    var newResults = "";
 
-	$.each(data.results, function(idx, result) {
-	    newResults = ("<li>" + result + "</li>") + newResults;
-	});
-
-	$("#results").html(newResults);
+    $.each(calcs, function(idx, result) {
+	newResults = ("<li>" + result + "</li>") + newResults;
     });
+
+    $("#results").html(newResults);
 }
 
 $(function() {
-    updateCalculations();
-
     $("#calcForm").submit(function(event) {
 	event.preventDefault();
 	requestCalculation();
     });
+
+    $("#cacheForm").submit(function(event) {
+	event.preventDefault();
+	resetCache($("#input[name='cacheSize']").html());
+    });
 });
 
 </script>
+
+<p>Cache hits: <span id="hitCount">0</span>, misses: <span id="missCount">0</span>, items:<span id="itemCount">0</span></p>
+<form id="cacheForm">
+  <input name="cacheSize" type="text" value="2500" />
+  <input type="submit" name="submitCacheSize" value="set cache size" />
+</form>
 
 <ul id="errors"></ul>
 
